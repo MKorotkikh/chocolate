@@ -43,8 +43,10 @@ $config = [
             'enablePrettyUrl' => true,
             'showScriptName' => false,
             'rules' => [
-                'vasya/petya' => '/candy/index',
-                '/candy/view/<id:\d+>' => '/candy/view/'
+                '/candy/view/<id:\d+>' => '/candy/view/',
+                '/candy/update/<id:\d+>' => '/candy/update/',
+                '/candy/show/<id:\d+>' => '/candy/show/',
+
             ],
         ],
 

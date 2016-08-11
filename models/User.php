@@ -2,38 +2,62 @@
 
 namespace app\models;
 
-class User extends \yii\base\Object implements \yii\web\IdentityInterface
+use yii\behaviors\TimestampBehavior;
+use yii\db\ActiveRecord;
+
+class User extends ActiveRecord implements \yii\web\IdentityInterface
 {
-    public $id;
-    public $username;
-    public $password;
-    public $authKey;
-    public $accessToken;
+    public $password_confirm;
 
-    private static $users = [
-        '100' => [
-            'id' => '100',
-            'username' => 'admin',
-            'password' => 'admin',
-            'authKey' => 'test100key',
-            'accessToken' => '100-token',
-        ],
-        '101' => [
-            'id' => '101',
-            'username' => 'demo',
-            'password' => 'demo',
-            'authKey' => 'test101key',
-            'accessToken' => '101-token',
-        ],
-    ];
+    public function rules() {
+        return [
+            [['first_name', 'last_name', 'email'], 'trim', 'on' => 'register'],
+            [['first_name', 'last_name', 'email', 'password', 'password_confirm'], 'required', 'on' => ['register']],
+            ['password_confirm', 'compare', 'compareAttribute' => 'password', 'on' => 'register'],
+            ['email', 'email'],
+            ['email', 'unique', 'on' => 'register'],
+            [['first_name', 'last_name'], 'string', 'min' => 3],
+            //['password', 'strongPassword', 'on' => 'register'],
+            //['password', function($attribute){
+            //   $this->addError($attribute, 'ERROR!!!!');
+            //}],
+            [['email', 'password'], 'required', 'on' => 'login'],
+            ['email', 'exist', 'on' => 'login'],
 
+        ];
+    }
+
+    public function beforeSave($insert) {
+        if($this->scenario == 'register') {
+            $this->password = \Yii::$app->security->generatePasswordHash($this->password);
+        }
+
+        return parent::beforeSave($insert);
+    }
+
+    public function login() {
+        if($user = User::findOne([
+            'email' => $this->email,
+            'password' => $this->password
+        ])) {
+            return $user;
+        } else {
+            $this->addError('password', 'Wrong password');
+        }
+    }
+
+    public function strongPassword($attribute) {
+        if(strlen($this->$attribute) < 20) {
+            $this->addError($attribute, 'Password is too short');
+        }
+    }
 
     /**
      * @inheritdoc
      */
     public static function findIdentity($id)
     {
-        return isset(self::$users[$id]) ? new static(self::$users[$id]) : null;
+        return self::findOne($id);
     }
 
     /**
@@ -41,12 +65,6 @@ class User extends \yii\base\Object implements \yii\web\IdentityInterface
      */
     public static function findIdentityByAccessToken($token, $type = null)
     {
-        foreach (self::$users as $user) {
-            if ($user['accessToken'] === $token) {
-                return new static($user);
-            }
-        }
-
         return null;
     }
 
@@ -58,12 +76,6 @@ class User extends \yii\base\Object implements \yii\web\IdentityInterface
      */
     public static function findByUsername($username)
     {
-        foreach (self::$users as $user) {
-            if (strcasecmp($user['username'], $username) === 0) {
-                return new static($user);
-            }
-        }
-
         return null;
     }
 
@@ -80,7 +92,7 @@ class User extends \yii\base\Object implements \yii\web\IdentityInterface
      */
     public function getAuthKey()
     {
-        return $this->authKey;
+        return $this->password;
     }
 
     /**
@@ -88,7 +100,7 @@ class User extends \yii\base\Object implements \yii\web\IdentityInterface
      */
     public function validateAuthKey($authKey)
     {
-        return $this->authKey === $authKey;
+        return $this->password === $authKey;
     }
 
     /**
@@ -101,4 +113,17 @@ class User extends \yii\base\Object implements \yii\web\IdentityInterface
     {
         return $this->password === $password;
     }
+
+    public function behaviors()
+    {
+        return [
+            [
+                'class' => TimestampBehavior::className(),
+                'createdAtAttribute' => 'created_at',
+                'updatedAtAttribute' => 'updated_at',
+                'value' => date('Y-m-d H-i-s'),
+            ],
+        ];
+    }
+
 }
